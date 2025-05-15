@@ -1,18 +1,31 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { registerUser } from "@/lib/api"
-import { useSidebar } from "@/components/sidebar-provider"
-import { useToast } from "@/components/ui/use-toast"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { registerUser } from "@/lib/api";
 
 const formSchema = z
   .object({
@@ -27,12 +40,11 @@ const formSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
-  })
+  });
 
 export default function RegisterPage() {
-  const [isLoading, setIsLoading] = useState(false)
-  const { login } = useSidebar()
-  const { toast } = useToast()
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -45,28 +57,23 @@ export default function RegisterPage() {
       password: "",
       confirmPassword: "",
     },
-  })
+  });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      // Remove confirmPassword as it's not in our schema
-      const { confirmPassword, ...userData } = values
-
-      const response = await registerUser(userData)
-      login(response.userId.toString())
-      toast({
-        title: "Registration successful",
-        description: "Welcome to Skill Exchange!",
-      })
+      const { confirmPassword, ...userData } = values;
+      const response = await registerUser(userData);
+      if (response.success) {
+        console.log("Registration successful, redirecting to login...");
+        router.push("/");
+      } else {
+        throw new Error(response.message || "Registration failed");
+      }
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Registration failed",
-        description: error instanceof Error ? error.message : "An error occurred during registration",
-      })
+      console.error("Registration error:", error instanceof Error ? error.message : "Unknown error");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
@@ -75,7 +82,9 @@ export default function RegisterPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl text-center">Create an Account</CardTitle>
-          <CardDescription className="text-center">Join Skill Exchange to share and learn new skills</CardDescription>
+          <CardDescription className="text-center">
+            Join Skill Exchange to share and learn new skills
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -191,5 +200,5 @@ export default function RegisterPage() {
         </CardFooter>
       </Card>
     </div>
-  )
+  );
 }

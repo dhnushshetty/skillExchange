@@ -58,3 +58,29 @@ CREATE TABLE Review (
 
 ALTER TABLE User ADD Password VARCHAR(255);
 select * from user;
+
+SELECT s.SkillId, s.SkillName, s.Description, s.Category, s.UserId, u.Name AS userName
+FROM Skill s
+JOIN User u ON s.UserId = u.UserId;
+select * from Skill;
+SHOW COLUMNS FROM User;
+
+select * from user;
+select * from skill;
+select * from request;
+select * from transaction;
+select * from review;
+
+-- Temporarily disable foreign key checks
+SET FOREIGN_KEY_CHECKS = 0;
+SET SQL_SAFE_UPDATES = 0;
+-- Delete from child tables first (if cascading doesn't cover everything)
+DELETE FROM Review;
+DELETE FROM Transaction;
+DELETE FROM Request;
+DELETE FROM Skill;
+DELETE FROM User;
+
+-- Re-enable foreign key checks
+SET FOREIGN_KEY_CHECKS = 1;
+SET SQL_SAFE_UPDATES = 1;

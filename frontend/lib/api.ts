@@ -117,6 +117,13 @@ export const createSkill = (skillData: {
   });
 };
 
+export const deleteSkill = (skillId: number, userId: string) => {
+  return fetchAPI<{ success: boolean; message: string }>(`/skill/${skillId}`, {
+    method: "DELETE",
+    body: JSON.stringify({ userId }),
+  });
+};
+
 // Request related API calls
 export const createRequest = (requestData: {
   userId: string;

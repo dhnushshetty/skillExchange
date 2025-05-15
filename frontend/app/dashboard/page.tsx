@@ -3,11 +3,14 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getUserProfile, getUserSkills, getUserRequests, getReceivedRequests } from "@/lib/api";
+import { getUserProfile, getUserSkills, getUserRequests, getReceivedRequests, deleteSkill } from "@/lib/api";
 import { getUserId } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
+
+// Debug: Log imported functions
+console.log("Imported deleteSkill:", typeof deleteSkill);
 
 interface UserProfile {
   userId: number;
@@ -43,6 +46,7 @@ export default function DashboardPage() {
   const [sentRequests, setSentRequests] = useState<Request[]>([]);
   const [receivedRequests, setReceivedRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingSkillId, setDeletingSkillId] = useState<number | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -68,6 +72,7 @@ export default function DashboardPage() {
           getReceivedRequests(userId),
         ]);
         console.log("Profile Data:", profileData);
+        console.log("Profile dateJoining:", profileData.dateJoining);
         console.log("Skills Data:", skillsData);
         console.log("Sent Requests Data:", sentRequestsData);
         console.log("Received Requests Data:", receivedRequestsData);
@@ -101,13 +106,81 @@ export default function DashboardPage() {
     fetchDashboardData();
   }, [toast]);
 
+  useEffect(() => {
+    console.log("Current profile state:", profile);
+  }, [profile]);
+
+  const handleDeleteSkill = async (skillId: number) => {
+    const userId = getUserId();
+    if (!userId) {
+      toast({
+        variant: "destructive",
+        title: "Authentication required",
+        description: "Please log in to delete skills",
+      });
+      return;
+    }
+
+    setDeletingSkillId(skillId);
+    try {
+      const response = await deleteSkill(skillId, userId);
+      if (response.success) {
+        toast({
+          title: "Skill deleted",
+          description: "The skill was removed successfully.",
+        });
+        // Refetch skills
+        const skillsData = await getUserSkills(userId);
+        const validSkills = skillsData.filter(
+          (skill) => skill.SkillId != null && skill.SkillName != null
+        );
+        setSkills(validSkills);
+      } else {
+        throw new Error(response.message || "Failed to delete skill");
+      }
+    } catch (error) {
+      console.error("Delete Skill Error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete skill";
+      if (errorMessage.includes("Cannot delete skill with associated requests")) {
+        toast({
+          variant: "default",
+          title: "Cannot delete skill",
+          description: "This skill has associated requests. Please resolve or delete the requests first.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error deleting skill",
+          description: errorMessage,
+        });
+      }
+    } finally {
+      setDeletingSkillId(null);
+    }
+  };
+
+  // Check if a skill has associated requests
+  const hasRequests = (skillId: number) => {
+    return (
+      sentRequests.some((req) => req.SkillId === skillId) ||
+      receivedRequests.some((req) => req.SkillId === skillId)
+    );
+  };
+
   const formatDate = (timeStamp: string) => {
+    if (!timeStamp) {
+      console.log("formatDate: Empty or null timeStamp");
+      return "N/A";
+    }
     try {
       const date = new Date(timeStamp);
-      return date instanceof Date && !isNaN(date.getTime())
-        ? date.toLocaleDateString()
-        : "Invalid Date";
-    } catch {
+      if (date instanceof Date && !isNaN(date.getTime())) {
+        return date.toLocaleDateString();
+      }
+      console.log("formatDate: Invalid date for timeStamp:", timeStamp);
+      return "Invalid Date";
+    } catch (error) {
+      console.log("formatDate error:", error, "timeStamp:", timeStamp);
       return "Invalid Date";
     }
   };
@@ -125,7 +198,7 @@ export default function DashboardPage() {
           <CardHeader className="pb-2">
             <CardTitle>My Profile</CardTitle>
             <CardDescription>
-              Joined on {profile?.dateJoining ? formatDate(profile.dateJoining) : "N/A"}
+              Joined on {formatDate(profile?.dateJoining || "")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -151,10 +224,20 @@ export default function DashboardPage() {
           <CardContent>
             <div className="flex flex-wrap gap-2">
               {skills.length > 0 ? (
-                skills.map((skill, index) => (
-                  <Badge key={`skill-${skill.SkillId ?? index}`} variant="secondary">
-                    {skill.SkillName}
-                  </Badge>
+                skills.map((skill) => (
+                  <div key={`skill-${skill.SkillId}`} className="flex items-center gap-1">
+                    <Badge variant="secondary">{skill.SkillName}</Badge>
+                    {!hasRequests(skill.SkillId) && (
+                      <button
+                        onClick={() => handleDeleteSkill(skill.SkillId)}
+                        disabled={deletingSkillId === skill.SkillId}
+                        className="text-red-500 hover:text-red-700 disabled:opacity-50 text-xs font-bold"
+                        aria-label={`Delete ${skill.SkillName}`}
+                      >
+                        X
+                      </button>
+                    )}
+                  </div>
                 ))
               ) : (
                 <p className="text-sm text-muted-foreground">No skills added yet</p>

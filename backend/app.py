@@ -122,6 +122,45 @@ def user_profile(user_id):
             conn.close()
             return jsonify({"success": False, "message": str(e)}), 400
 
+@app.route("/skill/<int:skill_id>", methods=["DELETE"])
+def delete_skill(skill_id):
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection failed"}), 500
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Get userId from request
+        data = request.get_json() or {}
+        user_id = data.get("userId")
+        if not user_id:
+            return jsonify({"success": False, "message": "User ID required"}), 400
+
+        # Check if skill exists and belongs to user
+        cursor.execute("SELECT UserId FROM Skill WHERE SkillId = %s", (skill_id,))
+        skill = cursor.fetchone()
+        if not skill:
+            return jsonify({"success": False, "message": "Skill not found"}), 404
+        if skill["UserId"] != int(user_id):
+            return jsonify({"success": False, "message": "Unauthorized: You can only delete your own skills"}), 403
+
+        # Check for related requests
+        cursor.execute("SELECT COUNT(*) AS count FROM Request WHERE SkillId = %s", (skill_id,))
+        request_count = cursor.fetchone()["count"]
+        if request_count > 0:
+            return jsonify({"success": False, "message": "Cannot delete skill with associated requests"}), 400
+
+        # Delete skill
+        cursor.execute("DELETE FROM Skill WHERE SkillId = %s", (skill_id,))
+        if cursor.rowcount == 0:
+            return jsonify({"success": False, "message": "Skill not found"}), 404
+        conn.commit()
+        return jsonify({"success": True, "message": "Skill deleted successfully"})
+    except mysql.connector.Error as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
 @app.route("/create-skill", methods=["POST"])
 def create_skill():
     conn = get_db_connection()
@@ -351,7 +390,7 @@ def submit_review():
         return jsonify({"success": False, "message": "Database connection failed"}), 500
     cursor = conn.cursor(dictionary=True)
     data = request.get_json()
-    transaction_id = data.get("transactionId")  # Match frontend key
+    transaction_id = data.get("transactionId")
     rating = data.get("rating")
     comments = data.get("comments")
     
