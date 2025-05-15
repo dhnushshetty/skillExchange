@@ -279,4 +279,4 @@ Please follow the code style (Prettier for frontend, PEP 8 for backend) and incl
 License
 This project is licensed under the MIT License. See the LICENSE file for details.
 
-Developed by: Dhnush Shetty GitHub: https://github.com/dhnushshettyDate: May 2025
+Developed by: Dhnush ShettyGitHub: https://github.com/dhnushshettyDate: May 2025
